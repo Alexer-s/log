@@ -1,8 +1,13 @@
 import sqlite3
 from abc import ABC, abstractmethod
+from tkinter import messagebox
 
 
 class DatabaseError(Exception):
+    pass
+
+
+class UniqueError(Exception):
     pass
 
 
@@ -44,12 +49,22 @@ class BaseSqlite(ABC):
                     return True
                 return last_id
         except Exception as error:
+            if 'UNIQUE constraint failed' in str(error):
+                raise UniqueError(
+                    'Нарушена уникальность поля.'
+                ) from error
+            else:
+                raise DatabaseError(
+                    'Что-то с базой, наверное занята...'
+                ) from error
+
+    def read_db(self, query, params=()):
+        try:
+            res = self.cur.execute(query, params)
+        except Exception as error:
             raise DatabaseError(
                 'Что-то с базой, наверное занята...'
             ) from error
-
-    def read_db(self, query, params=()):
-        res = self.cur.execute(query, params)
         return res.fetchall()
 
     def close_db(self):
@@ -80,12 +95,15 @@ class OutQueryDb(BaseSqlite):
         create_users_table = '''
         CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY,
-            name TEXT
+            name TEXT UNIQUE
         );
         '''
-        self.cur.execute(create_querys_table)
-        self.cur.execute(create_users_table)
-        self.con.commit()
+        try:
+            self.cur.execute(create_querys_table)
+            self.cur.execute(create_users_table)
+            self.con.commit()
+        except Exception:
+            messagebox.showerror('Ошибка', 'Что-то пошло не так...')
 
     @property
     def insert_query(self):
@@ -134,6 +152,10 @@ class OutQueryDb(BaseSqlite):
         return 'SELECT * FROM queries WHERE snils = ?'
 
     @property
+    def read_spec_queries(self):
+        return 'SELECT * FROM queries WHERE spec = ?'
+
+    @property
     def read_query_fo_id(self):
         return 'SELECT * FROM queries WHERE id = ?'
 
@@ -143,7 +165,11 @@ class OutQueryDb(BaseSqlite):
 
     @property
     def delete_user(self):
-        return 'DELETE FROM users WHERE name = ?'
+        return 'DELETE FROM users WHERE id = ?'
+
+    @property
+    def all_users(self):
+        return 'SELECT * FROM users'
 
     def last_record_id(self):  # этот метод вроде как не нужен
         res = self.cur.execute(
@@ -157,7 +183,12 @@ class OutQueryDb(BaseSqlite):
         return res.fetchone()[0]
 
     def users_list(self):
-        res = self.cur.execute('SELECT * FROM users')
+        try:
+            res = self.cur.execute('SELECT * FROM users')
+        except Exception as error:
+            raise DatabaseError(
+                'Ошибка при получении списка польлзователей!'
+            ) from error
         return res.fetchall()
 
 
