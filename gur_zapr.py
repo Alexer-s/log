@@ -5,6 +5,9 @@ import sys
 import tkinter as tk
 from datetime import date
 from dotenv import load_dotenv
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment
 from typing import Union
 from tkinter import filedialog, messagebox, ttk
 from main_klass import DatabaseError, OutQueryDb, UniqueError
@@ -165,7 +168,7 @@ def win_add_view_query(update=False, update_fields=None):
         column=0, row=len(names_fields), padx=2, pady=2, sticky='w'
     )
     print(users)
-    spec_field = ttk.Combobox(input_frame, width=30, values=users)
+    spec_field = ttk.Combobox(input_frame, width=30, values=users, state='readonly')
     FIELDS_WIN_ADD[names_fields[-1][1]] = spec_field
     spec_field.grid(
         column=1, row=len(names_fields), padx=2, pady=3, sticky='w'
@@ -370,7 +373,23 @@ def out_to_excel(spec):
             'Ошибка',
             f'Ошибка чтения БД при формировании Excel файла: {error}'
         )
-    data.to_excel('output.xlsx', index=False)
+    rus_columns = [name[0] for name in names_fields]
+    data.columns = rus_columns
+    if not os.path.exists(r'C:\output_opp'):
+        os.makedirs(r'C:\output_opp', exist_ok=True)
+    xcl_addr = os.path.join(r'C:\output_opp', 'log.xlsx')
+    print(xcl_addr)
+    data.to_excel(xcl_addr, index=False)
+    wb = load_workbook(xcl_addr)
+    ws = wb.active
+    widths = [int(field[2] / 100 * 20) for field in names_fields]
+    for col_num, column_cells, width in zip(range(1, len(widths) + 1), ws.columns, widths):
+        print(get_column_letter(col_num))
+        for cell in column_cells:
+            cell.alignment = Alignment(wrap_text=True, horizontal='left', vertical='top')
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+    wb.save(xcl_addr)
+    os.startfile(xcl_addr)
 
 
 def choise_win():  # навести красоту
@@ -396,26 +415,33 @@ def choise_win():  # навести красоту
     choice_btn.pack(side='top', anchor='se', padx=10, pady=10)
 
 
+data_path = getattr(sys, '_MEIPASS', 'C:/Dev/myprojects/logs_for_data')
+icon_addr = os.path.join(data_path, 'log.ico')
 gur_win = tk.Tk()
 gur_win.title('Журнал исходящих запросов')
 gur_win.geometry('400x300')
+gur_win.iconbitmap(default=icon_addr)
 gur_win.protocol('WM_DELETE_WINDOW', on_close_qur_win)
 db_name = 'db_query.sqlite'
-load_dotenv()
+local_appdata = os.getenv('LOCALAPPDATA')
+if local_appdata is None:
+    local_appdata = 'C:/'
+os.makedirs(os.path.join(local_appdata, 'query_log'), exist_ok=True)
+env_addr_path = os.path.join(local_appdata, 'query_log', '.env')
+load_dotenv(dotenv_path=env_addr_path)
 db_addr = os.getenv('PATH_TO_DB')
 if not db_addr:
     gur_win.withdraw()
-    folder_path = filedialog.askdirectory(title='Выберите папку для БД')  # если закрыть окно диалога, то что будет в этой переменной
+    folder_path = filedialog.askdirectory(title='Выберите папку для БД')
     if not folder_path:
         gur_win.destroy()
         sys.exit()
-    with open('.env', 'a', encoding='utf-8') as file:
+    with open(env_addr_path, 'a', encoding='utf-8') as file:
         addr = os.path.join(folder_path, db_name).replace('\\', '/')
         file.write(f'PATH_TO_DB={addr}')
     gur_win.deiconify()
-    load_dotenv()
+    load_dotenv(dotenv_path=env_addr_path)
     db_addr = os.getenv('PATH_TO_DB')
-# print(db_addr)
 gur_query = OutQueryDb(db_addr)
 red_style = ttk.Style()
 red_style.configure('Red.TEntry', foreground='red')
