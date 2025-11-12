@@ -12,6 +12,7 @@ class UniqueError(Exception):
 
 
 class BaseSqlite(ABC):
+    """Интерфейс для работы с БД."""
     def __init__(self, db_addr):
         self.db_addr = db_addr
         self.con = sqlite3.connect(self.db_addr)
@@ -72,6 +73,7 @@ class BaseSqlite(ABC):
 
 
 class OutQueryDb(BaseSqlite):
+    """Реализация работы с БД в журнале запросов."""
     def __init__(self, db_addr):
         super().__init__(db_addr)
 
@@ -190,7 +192,3 @@ class OutQueryDb(BaseSqlite):
                 'Ошибка при получении списка польлзователей!'
             ) from error
         return res.fetchall()
-
-
-if __name__ == '__main__':
-    gur_zapr = OutQueryDb('db.sqlite')

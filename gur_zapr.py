@@ -14,7 +14,6 @@ from main_klass import DatabaseError, OutQueryDb, UniqueError
 
 
 FIELDS_WIN_ADD: dict[str, Union[ttk.Entry, ttk.Combobox]] = {}
-# path_to_bd = os.getenv('PATH_TO_BD', None)
 
 
 names_fields = [
@@ -122,7 +121,7 @@ def win_add_view_query(update=False, update_fields=None):
     то вставляет данные запроса.
     '''
     add_win = tk.Toplevel()
-    add_win.title('Добавление запроса')
+    add_win.title('Добавление запроса' if not update else 'Обновление запроса')
     add_win.geometry('420x410')
     input_frame = ttk.Frame(
         add_win, borderwidth=1, relief=tk.SOLID, padding=(3, 3)
@@ -168,7 +167,9 @@ def win_add_view_query(update=False, update_fields=None):
         column=0, row=len(names_fields), padx=2, pady=2, sticky='w'
     )
     print(users)
-    spec_field = ttk.Combobox(input_frame, width=30, values=users, state='readonly')
+    spec_field = ttk.Combobox(
+        input_frame, width=30, values=users, state='readonly'
+    )
     FIELDS_WIN_ADD[names_fields[-1][1]] = spec_field
     spec_field.grid(
         column=1, row=len(names_fields), padx=2, pady=3, sticky='w'
@@ -204,7 +205,8 @@ def win_add_view_query(update=False, update_fields=None):
     )
 
 
-def chek_fio(add_user_field):  # разобраться здесь
+def chek_fio(add_user_field):
+    """Проверяет формат ввода Ф.И.О."""
     pattern = r'^[А-ЯЁ][а-яё]+ [А-ЯЁ].[А-ЯЁ].$'
     # print(f'И сюда глянь {re.match(pattern, "Киселева К.Е.")}')
     if not re.match(pattern, add_user_field.get()):
@@ -217,14 +219,19 @@ def chek_fio(add_user_field):  # разобраться здесь
 
 
 def chek_style(event):
-    # print(event.widget.config)
+    """Приводит стиль к стандартному при изменении поля entry
+    при вводе Ф.И.О.
+    """
     if event.widget.cget('style') != 'TEntry':
         event.widget.config(style='TEntry')
 
 
 def create_delete_user(del_usr=False):
+    """Формирует окно для ввода или удаления пользователей
+    и реализует эти операции.
+    """
     add_del_user_win = tk.Toplevel()
-    if del_usr: #  сделать красиво
+    if del_usr:
         add_del_user_win.title('Выбор имени')
         add_del_user_win.geometry('200x300')
         try:
@@ -260,8 +267,6 @@ def create_delete_user(del_usr=False):
         add_user_field = ttk.Entry(add_del_user_win, width=30)
         add_user_field.pack(pady=10)
         add_user_field.bind('<KeyPress>', chek_style)
-
-        #  добавить валидацию вводимого значения по образцу "Фамилия И.О."
 
     def add_user():
         if chek_fio(add_user_field):
@@ -310,11 +315,13 @@ def create_delete_user(del_usr=False):
 
 
 def on_close_qur_win():
+    """Закрывает БД при закрытии главного окна."""
     gur_query.close_db()
     gur_win.destroy()
 
 
 def get_query_from_list(event, tree):
+    """Достает запрос из объекта tree."""
     item_id = tree.focus()
     if not item_id:
         return
@@ -329,6 +336,8 @@ def get_query_from_list(event, tree):
 
 
 def find_query(snils):
+    """Поиск запроса. Если найден 1 запрос, выводится окно с его данными.
+    Если найдено несколько запросов - выводится их список."""
     try:
         queries = gur_query.read_db(gur_query.read_query, (snils,))
     except DatabaseError:
@@ -362,6 +371,7 @@ def find_query(snils):
 
 
 def out_to_excel(spec):
+    """Вывод запросов в excel, всех или определенного специалиста."""
     try:
         data = pd.read_sql_query(
             gur_query.read_db_query if spec == 'Все' else gur_query.read_spec_queries,
@@ -383,23 +393,31 @@ def out_to_excel(spec):
     wb = load_workbook(xcl_addr)
     ws = wb.active
     widths = [int(field[2] / 100 * 20) for field in names_fields]
-    for col_num, column_cells, width in zip(range(1, len(widths) + 1), ws.columns, widths):
-        print(get_column_letter(col_num))
+    for col_num, column_cells, width in zip(
+        range(1, len(widths) + 1), ws.columns, widths
+    ):
         for cell in column_cells:
-            cell.alignment = Alignment(wrap_text=True, horizontal='left', vertical='top')
+            cell.alignment = Alignment(
+                wrap_text=True, horizontal='left', vertical='top'
+            )
         ws.column_dimensions[get_column_letter(col_num)].width = width
     wb.save(xcl_addr)
     os.startfile(xcl_addr)
 
 
-def choise_win():  # навести красоту
+def choise_win():
+    """Формирует окно выбора специалиста."""
     choice_cpec_win = tk.Toplevel()
     choice_cpec_win.geometry('200x120')
     choice_cpec_win.title('Формирование журнала')
     choice_label = ttk.Label(choice_cpec_win, text='Выбрать:')
     choice_label.pack(side='top', anchor='nw', padx=10, pady=10)
-    specialists = ['Все',] + sorted([spec[1] for spec in gur_query.users_list()])
-    choice_box = ttk.Combobox(choice_cpec_win, width=20, values=specialists, state='readonly')
+    specialists = ['Все',] + sorted(
+        [spec[1] for spec in gur_query.users_list()]
+    )
+    choice_box = ttk.Combobox(
+        choice_cpec_win, width=20, values=specialists, state='readonly'
+    )
     choice_box.pack(side='top', fill='x', expand=True, padx=10)
     choice_box.set(specialists[0])
 
@@ -480,6 +498,3 @@ out_to_excel_btn.pack(side='bottom', anchor='se', padx=15, pady=10)
 
 gur_win.config(menu=main_menu)
 gur_win.mainloop()
-
-#  открывать excel файл после формирования
-#  навести красоту
