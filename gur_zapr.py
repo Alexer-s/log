@@ -89,8 +89,7 @@ def write_query(
         add_win.destroy()
 
 
-# сделать валидацию полей (даты, снилса и специалиста)
-def date_validation(event, snils=False):
+def date_validation(event, clipboard=None, snils=False):
     '''Ограничивает длину даты, снилса, расставляет разделители.'''
     special_keys = {'Return', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R',
                     'Left', 'Right', 'Up', 'Down', 'Shift_L', 'Shift_R',
@@ -99,21 +98,54 @@ def date_validation(event, snils=False):
         max_count, sep = (10, {3: '-', 6: '-', 9: ' '})
     else:
         max_count, sep = (7, {2: '.', 4: '.'})
-    if event.keysym not in special_keys:
-        widget_val = event.widget.get()
-        widget_val_digits = [c for c in widget_val if c.isdigit()]
-        if (len(widget_val_digits) > max_count
-                and event.keysym not in special_keys):
-            return 'break'
-        valid_value = ''
-        for num, char in enumerate(widget_val_digits):
-            if num in sep:
-                valid_value += sep[num]
-            valid_value += char
-            if num >= max_count:
-                break
-        event.widget.delete(0, tk.END)
-        event.widget.insert(0, valid_value)
+    if event.keysym in special_keys:
+        return
+    widget_val = event.widget.get() if not clipboard else clipboard
+    widget_val_digits = [c for c in widget_val if c.isdigit()]
+    if (
+        (
+            not clipboard
+            and len(widget_val_digits) > max_count
+            and event.keysym not in special_keys
+        )
+        or (not event.keysym.isdigit() and not clipboard)
+    ):
+        return 'break'
+    valid_value = ''
+    for num, char in enumerate(widget_val_digits):
+        if num in sep:
+            valid_value += sep[num]
+        valid_value += char
+        if num >= max_count:
+            break
+    event.widget.delete(0, tk.END)
+    print(event.widget.get())
+    event.widget.insert(0, valid_value)
+    print(event.widget.get())
+
+
+def paste(event, win, field=None):
+    try:
+        clipboard = win.clipboard_get()
+        if field and field in (
+            'date_reg', 'date_query', 'due_date', 'date_answer'
+        ):
+            date_validation(event, clipboard=clipboard)
+        elif field and field in ('find_snils', 'snils'):
+            date_validation(event, clipboard=clipboard, snils=True)
+        else:
+            event.widget.insert(0, clipboard)
+    except tk.TclError:
+        pass
+    return 'break'
+
+
+# def on_control_key(event, win, field):
+#     if (event.state & 0x4):
+#         print(event.keysym)
+#         if event.keysym.lower() in ('v', 'м'):
+#             paste(event, win, field)
+#             return 'break'
 
 
 def win_add_view_query(update=False, update_fields=None):
@@ -145,12 +177,19 @@ def win_add_view_query(update=False, update_fields=None):
         label = ttk.Label(input_frame, text=name_field[0], width=30)
         label.grid(column=0, row=line, padx=2, pady=3, sticky='w')
         field = ttk.Entry(input_frame, width=30)
+        field.bind(
+            '<Shift-Insert>',
+            lambda event, field=name_field[1]: paste(
+                event, field=field, win=input_frame
+            )
+        )
         if name_field[1] in {'date_query', 'due_date', 'date_answer', 'snils'}:
             field.bind(
                 '<KeyPress>',
                 lambda event, snils=name_field[1] == 'snils': date_validation(
-                    event, snils
-                )
+                    event, snils=snils
+                ),
+                add=True
             )
         FIELDS_WIN_ADD[name_field[1]] = field
         field.grid(column=1, row=line, padx=2, pady=3, sticky='w')
@@ -481,7 +520,8 @@ find_frame = ttk.Frame(gur_win)
 find_frame.pack(anchor='nw', padx=15)
 find_snils = ttk.Entry(find_frame, width=17)
 find_snils.pack(side='left', pady=10)
-find_snils.bind('<KeyPress>', lambda event: date_validation(event, snils=True))
+find_snils.bind('<Shift-Insert>', lambda event: paste(event, win=find_frame, field='find_snils'))
+find_snils.bind('<KeyPress>', lambda event: date_validation(event, snils=True), add=True)
 find_btn = ttk.Button(
     find_frame,
     text='Найти',
