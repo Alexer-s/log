@@ -520,8 +520,15 @@ find_frame = ttk.Frame(gur_win)
 find_frame.pack(anchor='nw', padx=15)
 find_snils = ttk.Entry(find_frame, width=17)
 find_snils.pack(side='left', pady=10)
-find_snils.bind('<Shift-Insert>', lambda event: paste(event, win=find_frame, field='find_snils'))
-find_snils.bind('<KeyPress>', lambda event: date_validation(event, snils=True), add=True)
+find_snils.bind(
+    '<Shift-Insert>',
+    lambda event: paste(event, win=find_frame, field='find_snils')
+)
+find_snils.bind(
+    '<KeyPress>',
+    lambda event: date_validation(event, snils=True),
+    add=True
+)
 find_btn = ttk.Button(
     find_frame,
     text='Найти',
