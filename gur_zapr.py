@@ -545,4 +545,3 @@ out_to_excel_btn.pack(side='bottom', anchor='se', padx=15, pady=10)
 
 gur_win.config(menu=main_menu)
 gur_win.mainloop()
-
